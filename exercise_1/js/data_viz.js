@@ -35,7 +35,6 @@ d3.dsv(",", "data/olympics_men_top_15.csv", function(d) {
   return {
     year: d.Year,
     country: d.Country,
-    gender: d.Gender,
     medal: d.size
   };
 }).then(function(data) {
@@ -71,21 +70,21 @@ d3.dsv(",", "data/olympics_men_top_15.csv", function(d) {
     .style("padding", "5px")
 
   // Three function that change the tooltip when user hover / move / leave a cell
-  var mouseover_1 = function(event, d) {
+  var mouseover = function(event, d) {
     tooltip_1.style("opacity", 1)
     d3.select(this)
     .style("stroke", "black")
     .style("opacity", 1)
   }
 
-  var mousemove_1 = function(event, d) {
+  var mousemove = function(event, d) {
     tooltip_1
     .html("Medal Won: " + d.medal)
     .style("left", (d3.pointer(event, this)[0]+70) + "px")
     .style("top", (d3.pointer(event, this)[1]) + "px")
   }
 
-  var mouseleave_1 = function(event, d) {
+  var mouseleave = function(event, d) {
     tooltip_1.style("opacity", 0)
     d3.select(this)
       .style("stroke", "none")
@@ -106,16 +105,15 @@ d3.dsv(",", "data/olympics_men_top_15.csv", function(d) {
       .style("stroke-width", 4)
       .style("stroke", "none")
       .style("opacity", 0.8)
-      .on("mouseover", mouseover_1)
-      .on("mousemove", mousemove_1)
-      .on("mouseleave", mouseleave_1)
+      .on("mouseover", mouseover)
+      .on("mousemove", mousemove)
+      .on("mouseleave", mouseleave)
 });
 
 d3.dsv(",", "data/olympics_women_top_15.csv", function(d) {
   return {
     year: d.Year,
     country: d.Country,
-    gender: d.Gender,
     medal: d.size
   };
 }).then(function(data) {
@@ -151,21 +149,21 @@ d3.dsv(",", "data/olympics_women_top_15.csv", function(d) {
     .style("padding", "5px")
 
   // Three function that change the tooltip when user hover / move / leave a cell
-  var mouseover_2 = function(event, d) {
+  var mouseover = function(event, d) {
     tooltip_2.style("opacity", 1)
     d3.select(this)
     .style("stroke", "black")
     .style("opacity", 1)
   }
 
-  var mousemove_2 = function(event, d) {
+  var mousemove = function(event, d) {
     tooltip_2
     .html("Medal Won: " + d.medal)
     .style("left", (d3.pointer(event, this)[0]+70) + "px")
     .style("top", (d3.pointer(event, this)[1]) + "px")
   }
 
-  var mouseleave_2 = function(event, d) {
+  var mouseleave = function(event, d) {
     tooltip_2.style("opacity", 0)
     d3.select(this)
       .style("stroke", "none")
@@ -187,9 +185,9 @@ d3.dsv(",", "data/olympics_women_top_15.csv", function(d) {
       .style("stroke-width", 4)
       .style("stroke", "none")
       .style("opacity", 0.8)
-      .on("mouseover", mouseover_2)
-      .on("mousemove", mousemove_2)
-      .on("mouseleave", mouseleave_2)
+      .on("mouseover", mouseover)
+      .on("mousemove", mousemove)
+      .on("mouseleave", mouseleave)
 });
 
 // Add title to graph
