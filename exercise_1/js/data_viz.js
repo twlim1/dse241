@@ -1,7 +1,7 @@
 // set the dimensions and margins of the graph
-var margin = {top: 30, right: 30, bottom: 30, left: 120},
+var margin = {top: 100, right: 30, bottom: 30, left: 120},
   width = 650 - margin.left - margin.right,
-  height = 450 - margin.top - margin.bottom;
+  height = 520 - margin.top - margin.bottom;
 
 // append the svg object to the body of the page
 var svg = d3.select("#data_viz_1")
@@ -23,7 +23,7 @@ var color_women = d3.scaleLinear()
 
   var color_pairs = d3.scaleLinear()
   .range(["#ccff90", "#90EE90"])
-  .domain([1, 16])
+  .domain([1, 5])
 
 var dynamicSort = function(property) {
     var sortOrder = -1;
@@ -48,7 +48,7 @@ const run_men = () => {
       medal: d.Total
     };
   }).then(function(data) {
-      showPlot(data, color_men);
+    show_heatmap(data, color_men, 'Men');
   });
 }
 
@@ -60,7 +60,7 @@ const run_women = () => {
       medal: d.Total
     };
   }).then(function(data) {
-      showPlot(data, color_women);
+    show_heatmap(data, color_women, 'Women');
   });
 }
 
@@ -72,14 +72,15 @@ const run_pairs = () => {
       medal: d.Total
     };
   }).then(function(data) {
-      showPlot(data, color_pairs);
+    show_heatmap(data, color_pairs, 'Mixed Pairs');
   });
 }
 
-const showPlot = (data, color) => {
+const show_heatmap = (data, color, gender) => {
   // Clear existing graph
   svg.selectAll("g").remove()
   svg.selectAll("rect").remove()
+  svg.selectAll("text").remove()
 
   // Build X scales and axis:
   console.log(data)
@@ -159,7 +160,7 @@ const showPlot = (data, color) => {
           .attr("y", -50)
           .attr("text-anchor", "left")
           .style("font-size", "22px")
-          .text("A d3.js heatmap");
+          .text("Winter Olympics Medals Through Time");
 
   // Add subtitle to graph
   svg.append("text")
@@ -169,7 +170,7 @@ const showPlot = (data, color) => {
           .style("font-size", "14px")
           .style("fill", "grey")
           .style("max-width", 400)
-          .text("Heat map: more description");
+          .text("Category (" + gender + ")");
 };
 
 run_men();

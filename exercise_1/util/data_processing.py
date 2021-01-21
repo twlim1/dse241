@@ -10,36 +10,41 @@ df_top_n = df_men.groupby('Country').count().sort_values(['Medal'], ascending=Fa
 country_list = df_top_n.index.values
 df_men = df_men[df_men.Country.isin(country_list)]
 
-# Create new csv format for easier processing in vis
-df_men = df_men[['Year', 'Country']]
-df_men = df_men.groupby(df_men.columns.tolist(), as_index=False).size()
-df_men.rename(columns={'size': 'Total'}, inplace=True)
-# print(df_men)
+# # Create new csv format for easier processing in vis
+# df_men = df_men[['Year', 'Country']]
+# df_men = df_men.groupby(df_men.columns.tolist(), as_index=False).size()
+# df_men.rename(columns={'size': 'Total'}, inplace=True)
+# # print(df_men)
 
-# Filter the list by top N countries by medal won
-df_women = df[df.Gender == 'W']
-df_top_n = df_women.groupby('Country').count().sort_values(['Medal'], ascending=False).head(n)
-country_list = df_top_n.index.values
-df_women = df_women[df_women.Country.isin(country_list)]
+df_men = df_men[['Country', 'Medal']]
+df_men = df_men.groupby(['Country', 'Medal']).count()
+print(df_men)
 
-# Create new csv format for easier processing in vis
-df_women = df_women[['Year', 'Country']]
-df_women = df_women.groupby(df_women.columns.tolist(), as_index=False).size()
-df_women.rename(columns={'size': 'Total'}, inplace=True)
-# print(df_women)
-
-# Filter the list by top N countries by medal won
-df_pairs = df[df.Gender == 'X']
-df_top_n = df_pairs.groupby('Country').count().sort_values(['Medal'], ascending=False).head(n)
-country_list = df_top_n.index.values
-df_pairs = df_pairs[df_pairs.Country.isin(country_list)]
-
-# Create new csv format for easier processing in vis
-df_pairs = df_pairs[['Year', 'Country']]
-df_pairs = df_pairs.groupby(df_pairs.columns.tolist(), as_index=False).size()
-df_pairs.rename(columns={'size': 'Total'}, inplace=True)
-# print(df_pairs)
-
-df_men.to_csv(r'..\data\olympics_men_top_{}.csv'.format(n), index=False)
-df_women.to_csv(r'..\data\olympics_women_top_{}.csv'.format(n), index=False)
-df_pairs.to_csv(r'..\data\olympics_pairs_top_{}.csv'.format(n), index=False)
+#
+# # Filter the list by top N countries by medal won
+# df_women = df[df.Gender == 'W']
+# df_top_n = df_women.groupby('Country').count().sort_values(['Medal'], ascending=False).head(n)
+# country_list = df_top_n.index.values
+# df_women = df_women[df_women.Country.isin(country_list)]
+#
+# # Create new csv format for easier processing in vis
+# df_women = df_women[['Year', 'Country']]
+# df_women = df_women.groupby(df_women.columns.tolist(), as_index=False).size()
+# df_women.rename(columns={'size': 'Total'}, inplace=True)
+# # print(df_women)
+#
+# # Filter the list by top N countries by medal won
+# df_pairs = df[df.Gender == 'X']
+# df_top_n = df_pairs.groupby('Country').count().sort_values(['Medal'], ascending=False).head(n)
+# country_list = df_top_n.index.values
+# df_pairs = df_pairs[df_pairs.Country.isin(country_list)]
+#
+# # Create new csv format for easier processing in vis
+# df_pairs = df_pairs[['Year', 'Country']]
+# df_pairs = df_pairs.groupby(df_pairs.columns.tolist(), as_index=False).size()
+# df_pairs.rename(columns={'size': 'Total'}, inplace=True)
+# # print(df_pairs)
+#
+# df_men.to_csv(r'..\data\olympics_men_top_{}.csv'.format(n), index=False)
+# df_women.to_csv(r'..\data\olympics_women_top_{}.csv'.format(n), index=False)
+# df_pairs.to_csv(r'..\data\olympics_pairs_top_{}.csv'.format(n), index=False)
