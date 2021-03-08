@@ -16,8 +16,11 @@ from folium.plugins import HeatMap, HeatMapWithTime
 from folium.plugins import MarkerCluster
 from folium import IFrame
 from folium import Marker
+import base64
+import re
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+#external_stylesheets = ['assets/bWLwgP.css']
 
 tabs_styles = {
     'height': '40px',
@@ -71,7 +74,7 @@ print('Virus cases between: {} - {}'.format(df['Year'].min(), df['Year'].max()))
 
 app.layout = html.Div([
     # DatePickerRange
-    html.Div(id='slider-text', children=[
+    html.Div(id='slider-text',children=[
         html.H3('West Nile Virus Spread {}-{}'.format(year_min, year_max))]),
         dcc.RangeSlider(
             id='year-range-slider',
@@ -83,16 +86,12 @@ app.layout = html.Div([
         ),
         dcc.Tabs(children=[
         # Tab 1
+        
         dcc.Tab(label='MarkerCluster', children=[
             # DatePickerRange
+            html.Img(src=app.get_asset_url('my-image.png'), style={'height':'20%', 'width':'300px','position': 'absolute','bottom': '30px','left': '15px','right': '15px','width': '300px'}),
             html.Br(),
             html.Iframe(id='map_1', srcDoc=open('Excercise7-markers-Groups.html', 'r').read(),width='100%', height='700')
-        ]),
-        # Tab 2
-        dcc.Tab(label='HeatMap', children=[
-            # DatePickerRange
-            html.Br(),
-            html.Iframe(id='map_2', srcDoc=open('Excercise7-Heatmap.html', 'r').read(),width='100%', height='700')
         ])
     ])
 ])
@@ -109,17 +108,19 @@ def update_map1(year_value):
     dff=[]
     dff= df.query('Year>={}&Year<={}'.format(min_year, max_year))
     dffmapdata=dff[['Longitude', 'Latitude']].values.tolist()
-    #updating map_1
-    # create empty map zoomed in on California by cluster grouping.
-    map_1 = folium.Map(location=CA_COORDINATES,tiles="OpenStreetMap", zoom_start=6)
+    res_popups=[]
     for idx in range(dff.shape[0]):
+        test = folium.Html('<b>Hello world</b>', script=True)
         county = dff['County'].iloc[idx]
         cases = dff['Positive_Cases'].iloc[idx]
         week = dff['Week_Reported'].iloc[idx]
         year = dff['Year'].iloc[idx]
+        res_popups.append("County:{}\n Cases:{}\n Week:{}\n Year:{}".format(county,cases,week, year))
+    #updating map_1
+    # create empty map zoomed in on California by cluster grouping.
+    map_1 = folium.Map(location=CA_COORDINATES,tiles="OpenStreetMap", zoom_start=6)
     g = folium.FeatureGroup(name='West Nile Virus Cases')
-    g.add_child(MarkerCluster(locations=dffmapdata))
-    g.add_child(folium.Popup("County:{}\n Cases:{}\n Week:{}\n Year:{}".format(county,cases,week, year)))
+    g.add_child(MarkerCluster(locations=dffmapdata,popups=res_popups))
     map_1.add_child(g)
     folium.TileLayer('Stamen Terrain').add_to(map_1)
     folium.TileLayer('Stamen Toner').add_to(map_1)
@@ -128,29 +129,16 @@ def update_map1(year_value):
     folium.TileLayer('cartodbdark_matter').add_to(map_1)
     folium.LayerControl().add_to(map_1)
     map_1.save('Excercise7-markers-Groups.html')
+    filename = "Excercise7-markers-Groups.html"
+    with open(filename, 'r+') as f:
+        text = f.read()
+        text = re.sub("https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css", 'assets/MarkerCluster.Default.css', text)
+        f.seek(0)
+        f.write(text)
+        f.truncate()
     
-    map2 = folium.Map(location=CA_COORDINATES,tiles='OpenStreetMap', zoom_start=6)
-    HeatMap(dffmapdata).add_to(map2)
-    map2.save('Excercise7-Heatmap.html')
     return open('Excercise7-markers-Groups.html', 'r').read()
 
-@app.callback(
-    Output('map_2', 'srcDoc'),
-    Input('year-range-slider', 'value')
-    )
-    
-def update_map2(year_value):
-    min_year, max_year = year_value
-    #return('You have selected "{}"').format(year_value)
-    #update map based on range filter
-    dff=[]
-    dff= df.query('Year>={}&Year<={}'.format(min_year, max_year))
-    dffmapdata=dff[['Longitude', 'Latitude']].values.tolist()
-    #updating map_1
-    map2 = folium.Map(location=CA_COORDINATES,tiles='OpenStreetMap', zoom_start=6)
-    HeatMap(dffmapdata).add_to(map2)
-    map2.save('Excercise7-Heatmap.html')
-    return open('Excercise7-HeatMap.html', 'r').read()
 
 if __name__ == '__main__':
     app.run_server(debug=True)
