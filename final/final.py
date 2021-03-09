@@ -11,8 +11,9 @@ from dash.dependencies import Input, Output
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 tabs_styles = {
-    'height': '40px',
-    'width': '48%',
+    'height': '35px',
+    'width': '40%',
+    'margin-left': '30%',
 }
 tab_style = {
     'borderBottom': '1px solid #d6d6d6',
@@ -37,11 +38,13 @@ year_min = df['Year'].min()
 
 # Basic Stats 
 print('Dataframe shape: {}'.format(df.shape))
-print('Attacks between: {} - {}'.format(df['Year'].min(), df['Year'].max()))
+print('Attacks between: {} - {}'.format(year_min, year_max))
 
 app.layout = html.Div([
     # DatePickerRange
-    html.Div(id='slider-text', children=[html.H3('Global Terrorist Attacks {}-{}'.format(year_min, year_max))]),
+    html.Center(
+        html.Div(id='slider-text', children=[html.H3('Global Terrorist Attacks {}-{}'.format(year_min, year_max))])
+    ),
     dcc.RangeSlider(
         id='year-range-slider',
         min=df['Year'].min(),
@@ -52,15 +55,19 @@ app.layout = html.Div([
     ),
     dcc.Tabs(children=[
         # Tab 1
-        dcc.Tab(label='World Graph', children=[
-            # DatePickerRange
+        dcc.Tab(label='World Map', children=[
             html.Br(),
             dcc.Tabs(children=[
-                dcc.Tab(label='Both', style=tab_style, selected_style=tab_selected_style),
-                dcc.Tab(label='Killed', style=tab_style, selected_style=tab_selected_style),
-                dcc.Tab(label='Injuried', style=tab_style, selected_style=tab_selected_style)
-            ], style=tabs_styles),
-            html.H3('map here'),
+                dcc.Tab(label='Hot Spots', style=tab_style, selected_style=tab_selected_style,
+                        children=[
+                            dcc.Graph(id='map_choropleth_1')
+                        ]),
+                dcc.Tab(label='Deaths', style=tab_style, selected_style=tab_selected_style,
+                        children=[
+                            dcc.Graph(id='map_bubble_1')
+                        ]),
+                # dcc.Tab(label='Injuries', style=tab_style, selected_style=tab_selected_style)
+            ], style=tabs_styles)
         ]),
         # Tab 2
         dcc.Tab(label='Dashboard', children=[
@@ -105,6 +112,35 @@ app.layout = html.Div([
 ])
 
 
+def update_map_choropleth_1(df_input):
+    fig = px.choropleth(df_input,
+                        locations='Country',
+                        locationmode='country names',
+                        color='Attack',
+                        range_color=(0, 4000),
+                        hover_name='Country',
+                        projection='natural earth',  # 'orthographic',
+                        color_continuous_scale='YlOrRd')
+    fig.update_layout(margin={'r': 0, 't': 20, 'l': 0, 'b': 0},
+                      geo=dict(landcolor='rgb(250, 250, 250)'))
+    return fig
+
+
+def update_map_bubble_1(df_input):
+    kill_no = 5
+    fig = px.scatter_geo(df_input[df_input['Killed'] > kill_no],
+                         lat='lat', lon='lon',
+                         color_discrete_map={'crimson': 'crimson'},
+                         size='Killed',
+                         labels={'lat': 'Latitude', 'lon': 'Longitude'},
+                         hover_name='Country',
+                         projection='natural earth',  # 'orthographic',
+                         size_max=40)
+    fig.update_layout(margin={'r': 0, 't': 20, 'l': 0, 'b': 0},
+                      geo=dict(landcolor='rgb(250, 250, 250)'))
+    return fig
+
+
 def update_graph_line(df_input):
     # Create traces
     fig = go.Figure()
@@ -116,7 +152,7 @@ def update_graph_line(df_input):
                              mode='lines+markers', name='Wounded'))
 
     # Edit the layout
-    fig.update_layout(title='Terrorist attacks YoY', xaxis_title='Year', yaxis_title='Count')
+    fig.update_layout(xaxis_title='Year', yaxis_title='Count')  # title='Terrorist attacks YoY',
     fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
     return fig
 
@@ -145,31 +181,55 @@ def update_graph_treemap(df_input, selections):
 
 
 @app.callback(
-    Output('graph_1', 'figure'),
+    Output('map_choropleth_1', 'figure'),
+    Output('map_bubble_1', 'figure'),
     Output('slider-text', 'children'),
-    Output('graph_2', 'figure'),
     Input('year-range-slider', 'value')
     )
 def update_graph_set_1(year_value):
     min_year, max_year = year_value
+    df_filtered = df.query('Year>={}&Year<={}'.format(min_year, max_year))
+
+    # Map Choropleth
+    group_by = ['Country']
+    agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
+    df_choropleth = df_filtered.groupby(group_by).agg(agg_on).reset_index()
+    df_choropleth.columns = ['Country', 'Attack', 'Killed', 'Wounded']
+
+    # Map Bubble
+    group_by = ['Country', 'lat_round', 'lon_round']
+    agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
+    df_bubble = df_filtered.groupby(group_by).agg(agg_on).reset_index()
+    df_bubble.columns = ['Country', 'lat', 'lon', 'Attack', 'Killed', 'Wounded']
+
+    return update_map_choropleth_1(df_choropleth), \
+           update_map_bubble_1(df_bubble), \
+           update_range_slider_text(min_year, max_year)
+
+
+@app.callback(
+    Output('graph_1', 'figure'),
+    Output('graph_2', 'figure'),
+    Input('year-range-slider', 'value')
+    )
+def update_graph_set_2(year_value):
+    min_year, max_year = year_value
+    df_filtered = df.query('Year>={}&Year<={}'.format(min_year, max_year))
 
     # Graph 1
     group_by = ['Year']
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
-    df_kill_wound = df.groupby(group_by).agg(agg_on).reset_index()
+    df_kill_wound = df_filtered.groupby(group_by).agg(agg_on).reset_index()
     df_kill_wound.columns = ['Year', 'Attacks', 'Killed', 'Wounded']
-    dff_kill_wound = df_kill_wound.query('Year>={}&Year<={}'.format(min_year, max_year))
 
     # Graph 2
     group_by = ['Year', 'Attack Type']
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
-    df_year_attack = df.groupby(group_by).agg(agg_on).reset_index()
+    df_year_attack = df_filtered.groupby(group_by).agg(agg_on).reset_index()
     df_year_attack.columns = ['Year', 'Attack Type', 'Attack', 'Killed', 'Wounded']
-    dff_year_attack = df_year_attack.query('Year>={}&Year<={}'.format(min_year, max_year))
 
-    return update_graph_line(dff_kill_wound), \
-           update_range_slider_text(min_year, max_year), \
-           update_graph_scatter(dff_year_attack)
+    return update_graph_line(df_kill_wound), \
+           update_graph_scatter(df_year_attack)
 
 
 @app.callback(
@@ -178,17 +238,18 @@ def update_graph_set_1(year_value):
     Input('dropdown_1', 'value'),
     Input('dropdown_2', 'value')
     )
-def update_graph_set_2(year_value, country, selections):
+def update_graph_set_3(year_value, country, selections):
     min_year, max_year = year_value
+    df_filtered = df.query('Year>={}&Year<={}'.format(min_year, max_year))
 
     # Graph 3
     group_by = ['Year', 'Region', 'Country', 'City', 'Attack Type', 'Weapon Type']
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
-    df_country_attack = df.groupby(group_by).agg(agg_on).reset_index()
+    df_country_attack = df_filtered.groupby(group_by).agg(agg_on).reset_index()
     df_country_attack.columns = ['Year', 'Region', 'Country', 'City', 'Attack Type', 'Weapon Type', 'Attack', 'Killed', 'Wounded']
-    dff_country = df_country_attack.query('Year>={}&Year<={}&Country=="{}"'.format(min_year, max_year, country))
+    df_country_attack = df_country_attack.query('Country=="{}"'.format(country))
 
-    return update_graph_treemap(dff_country, selections)
+    return update_graph_treemap(df_country_attack, selections)
 
 
 if __name__ == '__main__':
