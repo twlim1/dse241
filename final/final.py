@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import json
 
 from dash.dependencies import Input, Output
 
@@ -53,6 +54,7 @@ app.layout = html.Div([
         marks={str(year): ('' if year % 2 else str(year)) for year in df['Year'].unique()},
         step=1
     ),
+    #html.Div([html.Pre(id='hover')], style={'width':'30%', 'float':'right'}),
     dcc.Tabs(children=[
         # Tab 1
         dcc.Tab(label='World Map', children=[
@@ -60,7 +62,12 @@ app.layout = html.Div([
             dcc.Tabs(children=[
                 dcc.Tab(label='Hot Spots', style=tab_style, selected_style=tab_selected_style,
                         children=[
-                            dcc.Graph(id='map_choropleth_1')
+                            dcc.Graph(id='map_choropleth_1'),
+                            #hoverData={'points': [{'location': 'United States'}]}),
+                            # Graph 1
+                            dcc.Graph(id='graph_1'),
+                            # Graph 2
+                            dcc.Graph(id='graph_2')
                         ]),
                 dcc.Tab(label='Deaths', style=tab_style, selected_style=tab_selected_style,
                         children=[
@@ -70,12 +77,12 @@ app.layout = html.Div([
             ], style=tabs_styles)
         ]),
         # Tab 2
-        dcc.Tab(label='Dashboard', children=[
+        #dcc.Tab(label='Dashboard', children=[
             # Graph 1
-            dcc.Graph(id='graph_1'),
+            #dcc.Graph(id='graph_1'),
             # Graph 2
-            dcc.Graph(id='graph_2')
-        ]),
+            #dcc.Graph(id='graph_2')
+        #]),
         # Tab 3
         dcc.Tab(label='Exploratory', children=[
             html.Div([
@@ -123,6 +130,8 @@ def update_map_choropleth_1(df_input):
                         color_continuous_scale='YlOrRd')
     fig.update_layout(margin={'r': 0, 't': 20, 'l': 0, 'b': 0},
                       geo=dict(landcolor='rgb(250, 250, 250)'))
+         
+                      
     return fig
 
 
@@ -210,11 +219,18 @@ def update_graph_set_1(year_value):
 @app.callback(
     Output('graph_1', 'figure'),
     Output('graph_2', 'figure'),
-    Input('year-range-slider', 'value')
+    Input('year-range-slider', 'value'),
+    Input('map_choropleth_1', 'hoverData')
     )
-def update_graph_set_2(year_value):
+def update_graph_set_2(year_value,hoverData):
+    if (hoverData):
+        country_name = hoverData['points'][0]['location']
+        dff = df[df['Country'] == hoverData['points'][0]['location']]
+    else:
+        dff=df
+    
     min_year, max_year = year_value
-    df_filtered = df.query('Year>={}&Year<={}'.format(min_year, max_year))
+    df_filtered = dff.query('Year>={}&Year<={}'.format(min_year, max_year))
 
     # Graph 1
     group_by = ['Year']
@@ -227,9 +243,15 @@ def update_graph_set_2(year_value):
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
     df_year_attack = df_filtered.groupby(group_by).agg(agg_on).reset_index()
     df_year_attack.columns = ['Year', 'Attack Type', 'Attack', 'Killed', 'Wounded']
-
     return update_graph_line(df_kill_wound), \
            update_graph_scatter(df_year_attack)
+
+
+#@app.callback(Output('hover'), [Input('map_choropleth_1', 'hoverData')])
+    
+def display_hover_data(hoverData):
+    country_name = hoverData['points'][0]['location']
+    return json.dumps(country_name)
 
 
 @app.callback(
