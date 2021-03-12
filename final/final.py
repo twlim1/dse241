@@ -1,13 +1,14 @@
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import plotly.express as px
+import plotly.graph_objects as go
 import json
 
-from dash.dependencies import Input, Output
+from ipywidgets import widgets
+from dash.dependencies import Input, Output, State
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -36,8 +37,9 @@ df = pd.read_csv(r'data/all.csv')
 country_list = df['Country'].sort_values().unique()
 year_max = df['Year'].max()
 year_min = df['Year'].min()
+visualization_list = ('Parcats', 'Heatmap', 'Stacked Bar Chart', 'Table')
 
-# Basic Stats 
+# Basic Stats
 print('Dataframe shape: {}'.format(df.shape))
 print('Attacks between: {} - {}'.format(year_min, year_max))
 
@@ -54,7 +56,6 @@ app.layout = html.Div([
         marks={str(year): ('' if year % 2 else str(year)) for year in df['Year'].unique()},
         step=1
     ),
-    #html.Div([html.Pre(id='hover')], style={'width':'30%', 'float':'right'}),
     dcc.Tabs(children=[
         # Tab 1
         dcc.Tab(label='World Map', children=[
@@ -63,57 +64,69 @@ app.layout = html.Div([
                 dcc.Tab(label='Hot Spots', style=tab_style, selected_style=tab_selected_style,
                         children=[
                             dcc.Graph(id='map_choropleth_1'),
-                            #hoverData={'points': [{'location': 'United States'}]}),
                             # Graph 1
                             dcc.Graph(id='graph_1'),
                             # Graph 2
-                            dcc.Graph(id='graph_2')
+                            dcc.Graph(id='graph_2'),
                         ]),
                 dcc.Tab(label='Deaths', style=tab_style, selected_style=tab_selected_style,
                         children=[
                             dcc.Graph(id='map_bubble_1')
                         ]),
-                # dcc.Tab(label='Injuries', style=tab_style, selected_style=tab_selected_style)
-            ], style=tabs_styles)
+            ], style=tabs_styles),
         ]),
         # Tab 2
-        #dcc.Tab(label='Dashboard', children=[
-            # Graph 1
-            #dcc.Graph(id='graph_1'),
-            # Graph 2
-            #dcc.Graph(id='graph_2')
-        #]),
-        # Tab 3
         dcc.Tab(label='Exploratory', children=[
+            # row 1
             html.Div([
                 html.Div([
                     html.H6('Country'),
                     dcc.Dropdown(
-                        id='dropdown_1',
+                        id='dropdown_country',
                         options=[{'label': i, 'value': i} for i in country_list],
-                        value='United States'
-                        # value='Iraq'
+                        multi=True,
+                        value=['United States'],
+                    )],
+                    style={'width': '48%', 'display': 'inline-block'}),
+            ]),
+            # row 2
+            html.Div([
+                html.Div([
+                    html.H6('Visualization'),
+                    dcc.Dropdown(
+                        id='dropdown_vis',
+                        options=[{'label': i, 'value': i} for i in visualization_list],
+                        value='Parcats',
+                        clearable=False,
                     )],
                     style={'width': '48%', 'display': 'inline-block'}),
 
                 html.Div([
-                    html.H6('Data'),
+                    html.H6('Features'),
                     dcc.Dropdown(
-                        id='dropdown_2',
-                        options=[{'label': i, 'value': i} for i in ('Attack Type', 'City', 'Weapon Type')],
+                        id='dropdown_feature',
+                        options=[{'label': i, 'value': i} for i in ['']],
                         multi=True,
-                        value=['City']
+                        value=[],
+                        placeholder='Select data',
                     )],
                     style={'width': '48%', 'float': 'right', 'display': 'inline-block'})
             ]),
-            dcc.RadioItems(
-                id='map_type',
-                options=[{'label': i, 'value': i} for i in ['Both', 'Killed', 'Injured']],
-                value='Choropleth',
-                labelStyle={'display': 'inline-block'}
-            ),
-            # Graph 3
-            dcc.Graph(id='graph_3')
+            # row 3
+            html.Br(),
+            html.Div([
+                dcc.RadioItems(
+                    id='radio_count',
+                    labelStyle={'display': 'inline-block'}
+                ),
+            ]),
+            # row 4
+            # visualization
+            dcc.Store(id='memory_parcats'),
+            dcc.Graph(id='expl_vis_parcats', style={'display': 'none'}),
+            dcc.Graph(id='expl_vis_heatmap', style={'display': 'none'}),
+            dcc.Graph(id='expl_vis_stacked', style={'display': 'none'}),
+            dcc.Graph(id='expl_vis_table', style={'display': 'none'}),
         ])
     ])
 ])
@@ -130,18 +143,16 @@ def update_map_choropleth_1(df_input):
                         color_continuous_scale='YlOrRd')
     fig.update_layout(margin={'r': 0, 't': 20, 'l': 0, 'b': 0},
                       geo=dict(landcolor='rgb(250, 250, 250)'))
-         
-                      
     return fig
 
 
 def update_map_bubble_1(df_input):
     kill_no = 5
     fig = px.scatter_geo(df_input[df_input['Killed'] > kill_no],
-                         lat='lat', lon='lon',
+                         lat='Lat', lon='Lon',
                          color_discrete_map={'crimson': 'crimson'},
                          size='Killed',
-                         labels={'lat': 'Latitude', 'lon': 'Longitude'},
+                         labels={'Lat': 'Latitude', 'Lon': 'Longitude'},
                          hover_name='Country',
                          projection='natural earth',  # 'orthographic',
                          size_max=40)
@@ -176,17 +187,78 @@ def update_graph_scatter(df_input):
     return fig
 
 
-def update_graph_treemap(df_input, selections):
-    # Create traces
-    order = ['Country']
-    if selections:
-        for i in selections:
-            order.append(i)
-    # print('here')
-    # print(order)
-    fig = px.treemap(df_input, path=order, values='Killed')
+def update_expl_vis_parcats(features, df_input):
+    # print('Draw parcats')
+    order = ['Country'] + [feature for feature in features]
+    group_by = ['Region', 'Country', 'Attack Type', 'Weapon Type', 'Suicide', 'Success']
+    agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
+    df_tmp = df_input.groupby(group_by).agg(agg_on).reset_index()
+    df_tmp.columns = ['Region','Country', 'Attack Type', 'Weapon Type', 'Suicide', 'Success',
+                      'Attack', 'Killed', 'Wounded']
+    dimensions = [dict(values=df_tmp[label], label=label) for label in order]
+
+    # Build color scale
+    parcats_length = len(df_tmp)
+    color = np.zeros(parcats_length, dtype='uint8')
+    colorscale = [[0, 'gray'], [1, 'firebrick']]
+
+    # Build figure as FigureWidget
+    fig = go.FigureWidget(
+        data=[go.Scatter(x=df_tmp['Killed'],
+                         y=df_tmp['Wounded'],
+                         marker={'color': 'gray'},
+                         mode='markers',
+                         selected={'marker': {'color': 'firebrick'}},
+                         unselected={'marker': {'opacity': 0.3}}),
+              go.Parcats(domain={'y': [0, 0.4]},
+                         dimensions=dimensions,
+                         line={'colorscale': colorscale, 'cmin': 0, 'cmax': 1, 'color': color, 'shape': 'hspline'})
+              ])
+
+    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40},
+                      height=800, xaxis={'title': 'Killed'},
+                      yaxis={'title': 'Wounded', 'domain': [0.6, 1]},
+                      dragmode='lasso', hovermode='closest')
+    return fig, len(df_tmp)
+
+
+def update_expl_vis_heatmap(features, counts, df_input):
+    # print('Draw heatmap')
+    order = ['Country'] + [feature for feature in features]
+    group_by = ['Country', 'City', 'Group', 'Attack Type', 'Target Type', 'Weapon Type', 'Suicide', 'Success']
+    agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
+    df_tmp = df_input.groupby(group_by).agg(agg_on).reset_index()
+    df_tmp.columns = ['Country', 'City', 'Group', 'Attack Type', 'Target Type', 'Weapon Type', 'Suicide', 'Success',
+                      'Attack', 'Killed', 'Wounded']
+    fig = px.treemap(df_tmp, path=order, values=counts)
     fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
     return fig
+
+
+def update_expl_vis_stacked(feature, counts, df_input):
+    # print('Draw stacked')
+    group_by = ['Country', feature]
+    agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
+    df_tmp = df_input.groupby(group_by).agg(agg_on).reset_index()
+    df_tmp.columns = ['Country', feature, 'Attack', 'Killed', 'Wounded']
+    fig = px.bar(df_tmp, x='Country', y=counts, color=feature)  # title='Terorrist'
+    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
+    return fig
+
+
+def update_expl_vis_table(features, df_input):
+    # print('Draw table')
+    order = ['Country', 'Date'] + [feature for feature in features]
+    header = dict(values=order)
+    cells = dict(values=[df_input[item] for item in order])
+    fig = go.Figure(data=[go.Table(header=header, cells=cells)])
+    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
+    return fig
+
+
+def display_hover_data(hover_data):
+    country_name = hover_data['points'][0]['location']
+    return json.dumps(country_name)
 
 
 @app.callback(
@@ -206,10 +278,10 @@ def update_graph_set_1(year_value):
     df_choropleth.columns = ['Country', 'Attack', 'Killed', 'Wounded']
 
     # Map Bubble
-    group_by = ['Country', 'lat_round', 'lon_round']
+    group_by = ['Country', 'Lat_round', 'Lon_round']
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
     df_bubble = df_filtered.groupby(group_by).agg(agg_on).reset_index()
-    df_bubble.columns = ['Country', 'lat', 'lon', 'Attack', 'Killed', 'Wounded']
+    df_bubble.columns = ['Country', 'Lat', 'Lon', 'Attack', 'Killed', 'Wounded']
 
     return update_map_choropleth_1(df_choropleth), \
            update_map_bubble_1(df_bubble), \
@@ -222,12 +294,11 @@ def update_graph_set_1(year_value):
     Input('year-range-slider', 'value'),
     Input('map_choropleth_1', 'hoverData')
     )
-def update_graph_set_2(year_value,hoverData):
-    if (hoverData):
-        country_name = hoverData['points'][0]['location']
-        dff = df[df['Country'] == hoverData['points'][0]['location']]
+def update_graph_set_2(year_value, hover_data):
+    if hover_data:
+        dff = df[df['Country'] == hover_data['points'][0]['location']]
     else:
-        dff=df
+        dff = df
     
     min_year, max_year = year_value
     df_filtered = dff.query('Year>={}&Year<={}'.format(min_year, max_year))
@@ -247,32 +318,150 @@ def update_graph_set_2(year_value,hoverData):
            update_graph_scatter(df_year_attack)
 
 
-#@app.callback(Output('hover'), [Input('map_choropleth_1', 'hoverData')])
-    
-def display_hover_data(hoverData):
-    country_name = hoverData['points'][0]['location']
-    return json.dumps(country_name)
+@app.callback(
+    Output('dropdown_feature', 'multi'),
+    Output('dropdown_feature', 'options'),
+    Output('dropdown_feature', 'value'),
+    Output('radio_count', 'options'),
+    Output('radio_count', 'value'),
+    Input('dropdown_vis', 'value'),
+    )
+def update_selections(vis):
+    feature_multi = None
+    feature_options = list()
+    feature_value = list()
+    count_options = list()
+    count_value = ''
+    if vis.lower() == 'parcats':
+        feature_multi = True
+        feature_options = [{'label': i, 'value': i} for i in ['Attack Type', 'Weapon Type', 'Region',
+                                                              'Suicide', 'Success']]
+        feature_value = ['Attack Type', 'Weapon Type']
+    elif vis.lower() == 'heatmap':
+        feature_multi = True
+        feature_options = [{'label': i, 'value': i} for i in ['City', 'Group', 'Attack Type', 'Target Type',
+                                                              'Weapon Type', 'Suicide', 'Success']]
+        feature_value = ['Attack Type', 'Weapon Type']
+        count_options = [{'label': i, 'value': i} for i in ['Attack', 'Killed', 'Wounded']]
+        count_value = 'Killed'
+    elif vis.lower() == 'stacked bar chart':
+        feature_multi = False
+        feature_options = [{'label': i, 'value': i} for i in ['City', 'Group', 'Attack Type', 'Target Type',
+                                                              'Weapon Type', 'Suicide', 'Success']]
+        feature_value = 'Attack Type'
+        count_options = [{'label': i, 'value': i} for i in ['Attack', 'Killed', 'Wounded']]
+        count_value = 'Killed'
+    elif vis.lower() == 'table':
+        feature_multi = True
+        feature_options = [{'label': i, 'value': i} for i in ['Region', 'City', 'Group', 'Attack Type', 'Target Type',
+                                                              'Weapon Type', 'Suicide', 'Success', 'Killed', 'Wounded',
+                                                              'Summary', 'Target', 'Nationality', 'Motive']]
+        feature_value = ['Region', 'City']
+    return feature_multi, feature_options, feature_value, count_options, count_value
 
 
 @app.callback(
-    Output('graph_3', 'figure'),
+    Output('expl_vis_parcats', 'figure'),
+    Output('memory_parcats', 'data'),
+    Output('expl_vis_parcats', 'style'),
     Input('year-range-slider', 'value'),
-    Input('dropdown_1', 'value'),
-    Input('dropdown_2', 'value')
-    )
-def update_graph_set_3(year_value, country, selections):
-    min_year, max_year = year_value
-    df_filtered = df.query('Year>={}&Year<={}'.format(min_year, max_year))
+    Input('dropdown_country', 'value'),
+    Input('dropdown_vis', 'value'),
+    Input('dropdown_feature', 'value'),
+    Input('expl_vis_parcats', 'selectedData'),
+    Input('expl_vis_parcats', 'clickData'),
+    State('expl_vis_parcats', 'figure'),
+    State('memory_parcats', 'data')
+)
+def update_vis_parcats(year_value, countries, vis, features, selected_data, click_data, fig, data):
+    if vis.lower() != 'parcats':
+        return dash.no_update, dash.no_update, {'display': 'none'}
+    elif not countries or not features:
+        return dash.no_update, dash.no_update, dash.no_update
+    elif any([True for item in dash.callback_context.triggered
+              if item['prop_id'] in ('year-range-slider.value', 'dropdown_country.value', 'dropdown_feature.value')]):
+        min_year, max_year = year_value
+        country_filter = ['Country=="{}"'.format(country) for country in countries]
+        df_filtered = df.query('Year>={}&Year<={}&({})'.format(min_year, max_year, '|'.join(country_filter)))
+        return *update_expl_vis_parcats(features, df_filtered), {'display': 'block'}
+    else:
+        selection = None
+        # Update selection based on which event triggered the update.
+        trigger = dash.callback_context.triggered[0]['prop_id']
+        if trigger == 'expl_vis_parcats.clickData':
+            selection = [point['pointNumber'] for point in click_data['points']]
+        if trigger == 'expl_vis_parcats.selectedData':
+            selection = [point['pointIndex'] for point in selected_data['points']]
+        # Update scatter selection
+        fig['data'][0]['selectedpoints'] = selection
+        # Update parcats colors
+        new_color = np.zeros(data, dtype='uint8')
+        new_color[selection] = 1
+        fig['data'][1]['line']['color'] = new_color
+        return fig, dash.no_update, {'display': 'block'}
 
-    # Graph 3
-    group_by = ['Year', 'Region', 'Country', 'City', 'Attack Type', 'Weapon Type']
-    agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
-    df_country_attack = df_filtered.groupby(group_by).agg(agg_on).reset_index()
-    df_country_attack.columns = ['Year', 'Region', 'Country', 'City', 'Attack Type', 'Weapon Type', 'Attack', 'Killed', 'Wounded']
-    df_country_attack = df_country_attack.query('Country=="{}"'.format(country))
 
-    return update_graph_treemap(df_country_attack, selections)
+@app.callback(
+    Output('expl_vis_heatmap', 'figure'),
+    Output('expl_vis_heatmap', 'style'),
+    Input('year-range-slider', 'value'),
+    Input('dropdown_country', 'value'),
+    Input('dropdown_vis', 'value'),
+    Input('dropdown_feature', 'value'),
+    Input('radio_count', 'value'),
+)
+def update_vis_heatmap(year_value, countries, vis, features, counts):
+    if vis.lower() != 'heatmap':
+        return dash.no_update, {'display': 'none'}
+    elif not countries or not features:
+        return dash.no_update, dash.no_update
+    else:
+        min_year, max_year = year_value
+        country_filter = ['Country=="{}"'.format(country) for country in countries]
+        df_filtered = df.query('Year>={}&Year<={}&({})'.format(min_year, max_year, '|'.join(country_filter)))
+        return update_expl_vis_heatmap(features, counts, df_filtered), {'display': 'block'}
+
+
+@app.callback(
+    Output('expl_vis_stacked', 'figure'),
+    Output('expl_vis_stacked', 'style'),
+    Input('year-range-slider', 'value'),
+    Input('dropdown_country', 'value'),
+    Input('dropdown_vis', 'value'),
+    Input('dropdown_feature', 'value'),
+    Input('radio_count', 'value'),
+)
+def update_vis_stacked(year_value, countries, vis, features, counts):
+    if vis.lower() != 'stacked bar chart':
+        return dash.no_update, {'display': 'none'}
+    elif not countries or not features:
+        return dash.no_update, dash.no_update
+    else:
+        min_year, max_year = year_value
+        country_filter = ['Country=="{}"'.format(country) for country in countries]
+        df_filtered = df.query('Year>={}&Year<={}&({})'.format(min_year, max_year, '|'.join(country_filter)))
+        return update_expl_vis_stacked(features, counts, df_filtered), {'display': 'block'}
+
+
+@app.callback(
+    Output('expl_vis_table', 'figure'),
+    Output('expl_vis_table', 'style'),
+    Input('year-range-slider', 'value'),
+    Input('dropdown_country', 'value'),
+    Input('dropdown_vis', 'value'),
+    Input('dropdown_feature', 'value'),
+)
+def update_vis_table(year_value, countries, vis, features):
+    if vis.lower() != 'table':
+        return dash.no_update, {'display': 'none'}
+    elif not countries or not features:
+        return dash.no_update, dash.no_update
+    else:
+        min_year, max_year = year_value
+        country_filter = ['Country=="{}"'.format(country) for country in countries]
+        df_filtered = df.query('Year>={}&Year<={}&({})'.format(min_year, max_year, '|'.join(country_filter)))
+        return update_expl_vis_table(features, df_filtered), {'display': 'block'}
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
