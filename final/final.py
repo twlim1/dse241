@@ -56,6 +56,7 @@ app.layout = html.Div([
         marks={str(year): ('' if year % 2 else str(year)) for year in df['Year'].unique()},
         step=1
     ),
+    #html.Div([html.Pre(id='hover')], style={'width':'30%', 'float':'right'}),
     dcc.Tabs(children=[
         # Tab 1
         dcc.Tab(label='World Map', children=[
@@ -68,10 +69,16 @@ app.layout = html.Div([
                             dcc.Graph(id='graph_1'),
                             # Graph 2
                             dcc.Graph(id='graph_2'),
+                            dcc.Graph(id='graph_4')
                         ]),
                 dcc.Tab(label='Deaths', style=tab_style, selected_style=tab_selected_style,
                         children=[
                             dcc.Graph(id='map_bubble_1')
+                        ]),
+                dcc.Tab(label='Top Countries Distribution', style=tab_style, selected_style=tab_selected_style,
+                        children=[
+                            dcc.Graph(id='graph_5'),
+                            dcc.Graph(id='graph_6')
                         ]),
             ], style=tabs_styles),
         ]),
@@ -165,11 +172,11 @@ def update_graph_line(df_input):
     # Create traces
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Attacks'],
-                             mode='lines+markers', name='Attacks'))
+                             mode='lines+markers', name='# of Attacks'))
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Killed'],
-                             mode='lines+markers', name='Killed'))
+                             mode='lines+markers', name='# of Killed'))
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Wounded'],
-                             mode='lines+markers', name='Wounded'))
+                             mode='lines+markers', name='# of Wounded'))
 
     # Edit the layout
     fig.update_layout(xaxis_title='Year', yaxis_title='Count')  # title='Terrorist attacks YoY',
@@ -183,7 +190,7 @@ def update_range_slider_text(min_year, max_year):
 
 def update_graph_scatter(df_input):
     # Create traces
-    fig = px.scatter(df_input, x='Year', y='Attack', size='Killed', color='Attack Type', size_max=40)
+    fig = px.scatter(df_input, x='Year', y='Attack', size='Killed', color='Attack Type', size_max=40, opacity=0.4)
     return fig
 
 
@@ -261,6 +268,33 @@ def display_hover_data(hover_data):
     return json.dumps(country_name)
 
 
+def get_box_plot_data(df_in, y_axis, top_n):
+    df_box_year_country_all = df_in.groupby(['Country','Year']).agg({'eventid': ['size'], 
+                                                                  'Killed':['sum']}).reset_index()
+
+    df_box_year_country_all.columns = ['Country','Year', 'Attack', 'Killed']
+
+    df_box_country_agg = df_box_year_country_all.groupby(['Country']).agg({y_axis: ['sum']}).reset_index()
+
+    df_box_country_agg.columns = ['Country',y_axis]
+
+    country_list = df_box_country_agg.sort_values(y_axis, ascending=False)['Country'][:top_n]
+
+    df_box_country_filtered = df_box_year_country_all[df_box_year_country_all['Country'].isin(country_list)]
+    
+    return df_box_country_filtered
+
+
+def get_weapon_type_data(df_in):
+    df_weapon_type = df_in.groupby(['Year', 'Weapon Type']).agg({'eventid': ['size'],
+	                                                      'Killed':['sum']}).reset_index()
+
+    df_weapon_type.columns = ['Year', 'Weapon Type', 'Attack', 'Killed']
+    df_weapon_type = df_weapon_type.replace(
+        'Vehicle (not to include vehicle-borne explosives, i.e., car or truck bombs)',
+        'Vehicle')
+        
+    return df_weapon_type
 @app.callback(
     Output('map_choropleth_1', 'figure'),
     Output('map_bubble_1', 'figure'),
@@ -291,6 +325,7 @@ def update_graph_set_1(year_value):
 @app.callback(
     Output('graph_1', 'figure'),
     Output('graph_2', 'figure'),
+    Output('graph_4', 'figure'),
     Input('year-range-slider', 'value'),
     Input('map_choropleth_1', 'hoverData')
     )
@@ -314,9 +349,42 @@ def update_graph_set_2(year_value, hover_data):
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
     df_year_attack = df_filtered.groupby(group_by).agg(agg_on).reset_index()
     df_year_attack.columns = ['Year', 'Attack Type', 'Attack', 'Killed', 'Wounded']
-    return update_graph_line(df_kill_wound), \
-           update_graph_scatter(df_year_attack)
+    #Graph 4
+    df_weapon_type = get_weapon_type_data(df_filtered)
 
+    fig3 = px.scatter(df_weapon_type, x='Year', y='Attack', size='Killed', color='Weapon Type', 
+	             size_max=40 , opacity = 0.4)
+    return update_graph_line(df_kill_wound), \
+           update_graph_scatter(df_year_attack), \
+           fig3
+
+@app.callback(
+    Output('graph_5', 'figure'),
+    Output('graph_6', 'figure'),
+    Input('year-range-slider', 'value'),
+    )
+def update_graph_set_4(year_value):
+    min_year, max_year = year_value
+    df_filtered = df.query('Year>={}&Year<={}'.format(min_year, max_year))
+
+    df_weapon_type = get_weapon_type_data(df_filtered)
+
+    fig1 = px.scatter(df_weapon_type, x='Year', y='Attack', size='Killed', color='Weapon Type', 
+	             size_max=40 , opacity = 0.3)
+	             
+    #-----------------------------------------------------------------------------------------             
+    top_n = 10
+    y_axis = 'Killed'#'Attack'
+
+    df_box_country_filtered = get_box_plot_data(df, y_axis, top_n)
+    fig2 = px.violin(df_box_country_filtered, x='Country',y=y_axis)
+
+    top_n = 10
+    y_axis = 'Attack'#'Attack'
+    df_box_country_filtered = get_box_plot_data(df, y_axis, top_n)
+    fig3 = px.violin(df_box_country_filtered, x='Country',y=y_axis)
+    
+    return fig2, fig3
 
 @app.callback(
     Output('dropdown_feature', 'multi'),
