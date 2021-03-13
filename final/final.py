@@ -174,14 +174,14 @@ def update_graph_line(df_input):
     clscl = ['rgb(127,201,127)', 'rgb(190,174,212)', 'rgb(253,192,134)']
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Attacks'],
-                             mode='lines+markers', name='# of Attacks', 
-                        marker = dict(color = clscl[0])))
+                             mode='lines+markers', name='# of Attacks',
+                             marker=dict(color=clscl[0])))
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Killed'],
-                             mode='lines+markers', name='# of Killed', 
-                        marker = dict(color = clscl[1])))
+                             mode='lines+markers', name='# of Killed',
+                             marker=dict(color=clscl[1])))
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Wounded'],
                              mode='lines+markers', name='# of Wounded',
-                        marker = dict(color = clscl[2])))
+                             marker=dict(color=clscl[2])))
 
     # Edit the layout
     fig.update_layout(xaxis_title='Year', yaxis_title='Count')  # title='Terrorist attacks YoY',
@@ -198,47 +198,12 @@ def update_range_slider_text(min_year, max_year):
 
 
 def update_graph_scatter(df_input, label):
-    # Create traces   #label  : 'Attack Type', 'Weapon Type'
     clscl = ['rgb(166,206,227)', 'rgb(31,120,180)', 'rgb(178,223,138)', 'rgb(51,160,44)', 'rgb(251,154,153)',
              'rgb(227,26,28)', 'rgb(253,191,111)', 'rgb(255,127,0)', 'rgb(202,178,214)', 'rgb(106,61,154)',
              'rgb(255,255,153)', 'rgb(177,89,40)']
     title_text = "Terrorist attacks by " + label + " YoY"
     fig = px.scatter(df_input, x='Year', y='Attack', size='Killed', color=label, size_max=40, opacity=0.7,
                      color_discrete_sequence=clscl)
-    fig.update_layout(title={
-        'text': title_text,
-        'xanchor': 'left',
-        'yanchor': 'top'})
-    return fig
-
-
-def update_graph_violin(df_input, label, color):
-    # Create traces for Violin plot
-    fig = go.Figure()
-    fig.add_trace(go.Violin(x=df_input['Country'],
-                            y=df_input[label],
-                            legendgroup=label, scalegroup=label, name=label,
-                            line_color=color)
-                  )
-
-    # fig.add_trace(go.Violin(x=df_input['Country'],
-    #                    y=df_input['Attack'],
-    #                    legendgroup='Attack', scalegroup='Attack', name='Attack',side='negative',
-    #                                            line_color='blue') 
-    #                ) 
-    # fig.update_layout(xaxis_title='Year', yaxis_title='Count')  # title='Terrorist attacks YoY',
-    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
-    fig.update_layout(
-        title={
-            'text': "Violin plot Distribution Top 10 Countries",
-            'xanchor': 'left',
-            'yanchor': 'top'})
-
-    return fig
-
-    # Create traces   #label  : 'Attack Type', 'Weapon Type'
-    title_text = "Terrorist attacks by " + label + " YoY"
-    fig = px.scatter(df_input, x='Year', y='Attack', size='Killed', color=label, size_max=40, opacity=0.4)
     fig.update_layout(title={
         'text': title_text,
         'xanchor': 'left',
@@ -295,21 +260,21 @@ def update_expl_vis_treemap(features, counts, df_input):
     df_tmp.columns = ['Country', 'City', 'Group', 'Attack Type', 'Target Type', 'Weapon Type', 'Suicide', 'Success',
                       'Attack', 'Killed', 'Wounded']
     fig = px.treemap(df_tmp, path=order, values=counts, color_discrete_sequence=clscl)
-    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
+    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, height=800, hovermode='closest')
     return fig
 
 
 def update_expl_vis_stacked(feature, counts, df_input):
     # print('Draw stacked')
     clscl = ['rgb(166,206,227)', 'rgb(31,120,180)', 'rgb(178,223,138)', 'rgb(51,160,44)', 'rgb(251,154,153)',
-         'rgb(227,26,28)', 'rgb(253,191,111)', 'rgb(255,127,0)', 'rgb(202,178,214)', 'rgb(106,61,154)',
-         'rgb(255,255,153)', 'rgb(177,89,40)']
+             'rgb(227,26,28)', 'rgb(253,191,111)', 'rgb(255,127,0)', 'rgb(202,178,214)', 'rgb(106,61,154)',
+             'rgb(255,255,153)', 'rgb(177,89,40)']
     group_by = ['Country', feature]
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
     df_tmp = df_input.groupby(group_by).agg(agg_on).reset_index()
     df_tmp.columns = ['Country', feature, 'Attack', 'Killed', 'Wounded']
     fig = px.bar(df_tmp, x='Country', y=counts, color=feature, color_discrete_sequence=clscl)  # title='Terorrist'
-    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
+    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, height=800, hovermode='closest')
     return fig
 
 
@@ -319,7 +284,7 @@ def update_expl_vis_table(features, df_input):
     header = dict(values=order)
     cells = dict(values=[df_input[item] for item in order])
     fig = go.Figure(data=[go.Table(header=header, cells=cells)])
-    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
+    fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, height=800, hovermode='closest')
     return fig
 
 
@@ -430,7 +395,7 @@ def update_graph_set_4(year_value):
     df_box_country_filtered = df_box_year_country_all[df_box_year_country_all['Country'].isin(country_list)]
     fig1 = px.box(df_box_country_filtered, x='Country', y=y_axis, notched=False)
     fig1.update_layout(title={
-        'text': "Top 10 Countries Terrorists Killed Count Distribution YoY",
+        'text': 'Top 10 Countries Terrorists Killed Count Distribution YoY',
         'xanchor': 'left',
         'yanchor': 'top'})
 
@@ -446,7 +411,7 @@ def update_graph_set_4(year_value):
     df_box_country_filtered = df_box_year_country_all[df_box_year_country_all['Country'].isin(country_list)]
     fig2 = px.box(df_box_country_filtered, x='Country', y=y_axis, notched=False)
     fig2.update_layout(title={
-        'text': "Top 10 Countries Terrorist Attacks  Distribution YoY",
+        'text': 'Top 10 Countries Terrorist Attacks  Distribution YoY',
         'xanchor': 'left',
         'yanchor': 'top'})
     return fig1, fig2
@@ -476,7 +441,7 @@ def update_graph_set_7(year_value, hover_data):
              'rgb(255,255,153)', 'rgb(177,89,40)']
     fig = px.bar(df_killed, x='Year', y='Killed', color='Attack Type', color_discrete_sequence=clscl)
     fig.update_layout(title={
-        'text': "Terrorist Attacktype Deaths YoY",
+        'text': 'Terrorist Attacktype Deaths YoY',
         'xanchor': 'left',
         'yanchor': 'top'})
     return fig
