@@ -547,7 +547,7 @@ def update_vis_parcats(year_value, countries, vis, features, selected_data, clic
         min_year, max_year = year_value
         country_filter = ['Country=="{}"'.format(country) for country in countries]
         df_filtered = df.query('Year>={}&Year<={}&({})'.format(min_year, max_year, '|'.join(country_filter)))
-        return update_expl_vis_parcats(features, df_filtered), {'display': 'block'}
+        return *update_expl_vis_parcats(features, df_filtered), {'display': 'block'}
     else:
         selection = None
         # Update selection based on which event triggered the update.
