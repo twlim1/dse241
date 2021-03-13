@@ -174,11 +174,14 @@ def update_graph_line(df_input):
     clscl = ['rgb(127,201,127)', 'rgb(190,174,212)', 'rgb(253,192,134)']
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Attacks'],
-                             mode='lines+markers', name='# of Attacks', fillcolor=clscl[0]))
+                             mode='lines+markers', name='# of Attacks', 
+                        marker = dict(color = clscl[0])))
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Killed'],
-                             mode='lines+markers', name='# of Killed', fillcolor=clscl[1]))
+                             mode='lines+markers', name='# of Killed', 
+                        marker = dict(color = clscl[1])))
     fig.add_trace(go.Scatter(x=df_input['Year'], y=df_input['Wounded'],
-                             mode='lines+markers', name='# of Wounded', fillcolor=clscl[2]))
+                             mode='lines+markers', name='# of Wounded',
+                        marker = dict(color = clscl[2])))
 
     # Edit the layout
     fig.update_layout(xaxis_title='Year', yaxis_title='Count')  # title='Terrorist attacks YoY',
@@ -282,24 +285,30 @@ def update_expl_vis_parcats(features, df_input):
 
 def update_expl_vis_treemap(features, counts, df_input):
     # print('Draw treemap')
+    clscl = ['rgb(166,206,227)', 'rgb(31,120,180)', 'rgb(178,223,138)', 'rgb(51,160,44)', 'rgb(251,154,153)',
+             'rgb(227,26,28)', 'rgb(253,191,111)', 'rgb(255,127,0)', 'rgb(202,178,214)', 'rgb(106,61,154)',
+             'rgb(255,255,153)', 'rgb(177,89,40)']
     order = ['Country'] + [feature for feature in features]
     group_by = ['Country', 'City', 'Group', 'Attack Type', 'Target Type', 'Weapon Type', 'Suicide', 'Success']
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
     df_tmp = df_input.groupby(group_by).agg(agg_on).reset_index()
     df_tmp.columns = ['Country', 'City', 'Group', 'Attack Type', 'Target Type', 'Weapon Type', 'Suicide', 'Success',
                       'Attack', 'Killed', 'Wounded']
-    fig = px.treemap(df_tmp, path=order, values=counts)
+    fig = px.treemap(df_tmp, path=order, values=counts, color_discrete_sequence=clscl)
     fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
     return fig
 
 
 def update_expl_vis_stacked(feature, counts, df_input):
     # print('Draw stacked')
+    clscl = ['rgb(166,206,227)', 'rgb(31,120,180)', 'rgb(178,223,138)', 'rgb(51,160,44)', 'rgb(251,154,153)',
+         'rgb(227,26,28)', 'rgb(253,191,111)', 'rgb(255,127,0)', 'rgb(202,178,214)', 'rgb(106,61,154)',
+         'rgb(255,255,153)', 'rgb(177,89,40)']
     group_by = ['Country', feature]
     agg_on = {'eventid': ['size'], 'Killed': ['sum'], 'Wounded': ['sum']}
     df_tmp = df_input.groupby(group_by).agg(agg_on).reset_index()
     df_tmp.columns = ['Country', feature, 'Attack', 'Killed', 'Wounded']
-    fig = px.bar(df_tmp, x='Country', y=counts, color=feature)  # title='Terorrist'
+    fig = px.bar(df_tmp, x='Country', y=counts, color=feature, color_discrete_sequence=clscl)  # title='Terorrist'
     fig.update_layout(margin={'l': 40, 'b': 40, 't': 40, 'r': 40}, hovermode='closest')
     return fig
 
@@ -538,7 +547,7 @@ def update_vis_parcats(year_value, countries, vis, features, selected_data, clic
         min_year, max_year = year_value
         country_filter = ['Country=="{}"'.format(country) for country in countries]
         df_filtered = df.query('Year>={}&Year<={}&({})'.format(min_year, max_year, '|'.join(country_filter)))
-        return *update_expl_vis_parcats(features, df_filtered), {'display': 'block'}
+        return update_expl_vis_parcats(features, df_filtered), {'display': 'block'}
     else:
         selection = None
         # Update selection based on which event triggered the update.
